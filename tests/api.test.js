@@ -2,7 +2,7 @@ require('dotenv').config();
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const app = require('../app'); // Adjust path if needed
+const { app, connectDB } = require('../app'); // Adjust path if needed
 const User = require('../models/User');
 const Note = require('../models/Note');
 
@@ -10,9 +10,22 @@ let mongoServer;
 let token;
 
 beforeAll(async () => {
+    // mongoServer = await MongoMemoryServer.create();
+    // const uri = mongoServer.getUri();
+    // await mongoose.connect(uri);
+
     mongoServer = await MongoMemoryServer.create();
     const uri = mongoServer.getUri();
-    await mongoose.connect(uri);
+    
+    // Disconnect existing connection if necessary
+    if (mongoose.connection.readyState !== 0) {
+        await mongoose.disconnect();
+    }
+
+    await mongoose.connect(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    });
 
     // Create a test user
     await request(app)

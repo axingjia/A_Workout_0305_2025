@@ -44,7 +44,7 @@ const swaggerOptions = {
         },
         servers: [{ url: 'http://localhost:5000' }],
     },
-    apis: ['./index.js'],
+    apis: ['./app.js'],
 };
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
@@ -60,12 +60,46 @@ app.use(limiter);
 // MongoDB Connection
 
 
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-}).then(() => console.log('MongoDB Connected'))
-.catch(err => console.error('MongoDB Connection Error:', err));
+const connectDB = async () => {
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.MONGO_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+        });
+    }
+};
+connectDB();
 
+
+// mongoose.connect(process.env.MONGO_URI, {
+//     useNewUrlParser: true,
+//     useUnifiedTopology: true,
+// }).then(() => console.log('MongoDB Connected'))
+// .catch(err => console.error('MongoDB Connection Error:', err));
+
+
+
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: Create a new user account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ */
 // Authentication Routes
 app.post('/api/auth/signup', async (req, res) => {
     const { username, password } = req.body;
@@ -82,6 +116,28 @@ app.post('/api/auth/signup', async (req, res) => {
     res.status(201).json({ message: 'User created successfully' });
 });
 
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Log in to an existing user account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Returns an access token
+ */
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     const user = await User.findOne({ username });
@@ -94,12 +150,49 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ token });
 });
 
+
+/**
+ * @swagger
+ * /api/notes:
+ *   get:
+ *     summary: Get all notes for the authenticated user
+ *     tags: [Notes]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of notes
+ */
 // Note Routes
 app.get('/api/notes', authenticate, async (req, res) => {
     const notes = await Note.find({ user: req.user.id });
     res.json(notes);
 });
 
+
+/**
+ * @swagger
+ * /api/notes:
+ *   post:
+ *     summary: Create a new note
+ *     tags: [Notes]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Note created successfully
+ */
 app.post('/api/notes', authenticate, async (req, res) => {
     const { title, content } = req.body;
     const note = new Note({ user: req.user.id, title, content });
@@ -107,6 +200,36 @@ app.post('/api/notes', authenticate, async (req, res) => {
     res.status(201).json(note);
 });
 
+
+/**
+ * @swagger
+ * /api/notes/{id}:
+ *   put:
+ *     summary: Update an existing note
+ *     tags: [Notes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Note updated successfully
+ */
 app.put('/api/notes/:id', authenticate, async (req, res) => {
     const note = await Note.findById(req.params.id);
     if (!note || note.user.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
@@ -119,6 +242,25 @@ app.put('/api/notes/:id', authenticate, async (req, res) => {
     res.json(note);
 });
 
+
+/**
+ * @swagger
+ * /api/notes/{id}:
+ *   delete:
+ *     summary: Delete a note
+ *     tags: [Notes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Note deleted successfully
+ */
 app.delete('/api/notes/:id', authenticate, async (req, res) => {
     const note = await Note.findById(req.params.id);
     if (!note || note.user.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
@@ -127,6 +269,24 @@ app.delete('/api/notes/:id', authenticate, async (req, res) => {
     res.json({ message: 'Note deleted' });
 });
 
+
+/**
+ * @swagger
+ * /api/search:
+ *   get:
+ *     summary: Search for notes based on keywords
+ *     tags: [Notes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of matching notes
+ */
 app.get('/api/search', authenticate, async (req, res) => {
     const { q } = req.query;
     const notes = await Note.find({
@@ -136,6 +296,34 @@ app.get('/api/search', authenticate, async (req, res) => {
     res.json(notes);
 });
 
+
+/**
+ * @swagger
+ * /api/notes/{id}/share:
+ *   post:
+ *     summary: Share a note with another user
+ *     tags: [Notes]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Note shared successfully
+ */
 app.post('/api/notes/:id/share', authenticate, async (req, res) => {
     const { userId } = req.body;
     const note = await Note.findById(req.params.id);
@@ -160,3 +348,5 @@ if (process.env.NODE_ENV === 'test') {
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
+
+module.exports = { app, connectDB };
