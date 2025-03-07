@@ -8,6 +8,10 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const app = express();
+const User = require('./models/User');
+const Note = require('./models/Note');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 
 // Authentication Middleware
 const authenticate = (req, res, next) => {
@@ -24,19 +28,21 @@ const authenticate = (req, res, next) => {
 };
 
 // MongoDB Models
-const NoteSchema = new mongoose.Schema({
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    title: { type: String, required: true },
-    content: { type: String, required: true },
-}, { timestamps: true });
-NoteSchema.index({ title: 'text', content: 'text' });
-const Note = mongoose.model('Note', NoteSchema);
 
-const UserSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-});
-const User = mongoose.model('User', UserSchema);
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'Notes API',
+            version: '1.0.0',
+            description: 'A simple API for managing notes',
+        },
+        servers: [{ url: 'http://localhost:5000' }],
+    },
+    apis: ['./index.js'],
+};
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Middleware
 app.use(express.json());
