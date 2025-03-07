@@ -8,6 +8,11 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 const app = express();
+// Middleware
+app.use(express.json());
+app.use(cors());
+app.use(helmet());
+
 const User = require('./models/User');
 const Note = require('./models/Note');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -44,10 +49,6 @@ const swaggerOptions = {
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// Middleware
-app.use(express.json());
-app.use(cors());
-app.use(helmet());
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -59,8 +60,7 @@ app.use(limiter);
 // MongoDB Connection
 
 
-// mongoose.connect(process.env.MONGO_URI, {
-mongoose.connect('mongodb://127.0.0.1:27017/myapp', {
+mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 }).then(() => console.log('MongoDB Connected'))
@@ -69,10 +69,13 @@ mongoose.connect('mongodb://127.0.0.1:27017/myapp', {
 // Authentication Routes
 app.post('/api/auth/signup', async (req, res) => {
     const { username, password } = req.body;
+    console.log("###body is");
+    console.log(req.body);
     const existingUser = await User.findOne({ username });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    
     const user = new User({ username, password: hashedPassword });
     await user.save();
 
